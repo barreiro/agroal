@@ -4,6 +4,7 @@
 package io.agroal.pool;
 
 import io.agroal.api.transaction.TransactionAware;
+import io.agroal.pool.util.StampedCopyOnWriteArrayList;
 
 import java.lang.reflect.InvocationHandler;
 import java.sql.Array;
@@ -21,6 +22,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
@@ -52,6 +54,8 @@ public class ConnectionWrapper implements Connection, TransactionAware {
     private static final TransactionAware.SQLCallable<Boolean> NO_ACTIVE_TRANSACTION = () -> false;
 
     // --- //
+
+    private final Collection<Statement> trackedStatements = new StampedCopyOnWriteArrayList<>( Statement.class );
 
     private final ConnectionHandler handler;
 
@@ -120,6 +124,22 @@ public class ConnectionWrapper implements Connection, TransactionAware {
 
     // --- //
 
+    private <T extends Statement> T trackStatement(T statement) {
+        trackedStatements.add( statement );
+        return statement;
+    }
+
+    private void closeTrackedStatements() throws SQLException {
+        if ( !trackedStatements.isEmpty() ) {
+            for ( Statement statement : trackedStatements ) {
+                statement.close();
+            }
+            trackedStatements.clear();
+        }
+    }
+
+    // --- //
+
     public ConnectionHandler getHandler() {
         return handler;
     }
@@ -128,6 +148,7 @@ public class ConnectionWrapper implements Connection, TransactionAware {
     public void close() throws SQLException {
         wrappedConnection = CLOSED_CONNECTION;
         if ( !inTransaction ) {
+            closeTrackedStatements();
             handler.returnConnection();
         }
     }
@@ -185,19 +206,19 @@ public class ConnectionWrapper implements Connection, TransactionAware {
     @Override
     public Statement createStatement() throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.createStatement();
+        return trackStatement( wrappedConnection.createStatement() );
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.createStatement( resultSetType, resultSetConcurrency );
+        return trackStatement( wrappedConnection.createStatement( resultSetType, resultSetConcurrency ) );
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.createStatement( resultSetType, resultSetConcurrency, resultSetHoldability );
+        return trackStatement( wrappedConnection.createStatement( resultSetType, resultSetConcurrency, resultSetHoldability ) );
     }
 
     @Override
@@ -353,55 +374,55 @@ public class ConnectionWrapper implements Connection, TransactionAware {
     @Override
     public CallableStatement prepareCall(String sql) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareCall( sql );
+        return trackStatement( wrappedConnection.prepareCall( sql ) );
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareCall( sql, resultSetType, resultSetConcurrency );
+        return trackStatement( wrappedConnection.prepareCall( sql, resultSetType, resultSetConcurrency ) );
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareCall( sql, resultSetType, resultSetConcurrency, resultSetHoldability );
+        return trackStatement( wrappedConnection.prepareCall( sql, resultSetType, resultSetConcurrency, resultSetHoldability ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql );
+        return trackStatement( wrappedConnection.prepareStatement( sql ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql, resultSetType, resultSetConcurrency );
+        return trackStatement( wrappedConnection.prepareStatement( sql, resultSetType, resultSetConcurrency ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql, resultSetType, resultSetConcurrency, resultSetHoldability );
+        return trackStatement( wrappedConnection.prepareStatement( sql, resultSetType, resultSetConcurrency, resultSetHoldability ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql, autoGeneratedKeys );
+        return trackStatement( wrappedConnection.prepareStatement( sql, autoGeneratedKeys ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql, columnIndexes );
+        return trackStatement( wrappedConnection.prepareStatement( sql, columnIndexes ) );
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException {
         lazyEnlistmentCheck();
-        return wrappedConnection.prepareStatement( sql, columnNames );
+        return trackStatement( wrappedConnection.prepareStatement( sql, columnNames ) );
     }
 
     @Override
