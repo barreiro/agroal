@@ -42,6 +42,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
     private final AgroalDataSourceListener[] listeners;
 
     private final StampedCopyOnWriteArrayList<ConnectionHandler> allConnections;
+    private final boolean pooling;
 
     private final AgroalSynchronizer synchronizer;
     private final ConnectionFactory connectionFactory;
@@ -52,14 +53,19 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
     private final boolean validationEnabled;
     private final boolean reapEnabled;
 
-    private final LongAccumulator maxUsed = new LongAccumulator(Math::max, Long.MIN_VALUE);
+    private final LongAccumulator maxUsed = new LongAccumulator( Math::max, Long.MIN_VALUE );
     private final LongAdder activeCount = new LongAdder();
 
     private MetricsRepository metricsRepository;
     private ThreadLocal<List<ConnectionHandler>> localCache;
 
     public ConnectionPool(AgroalConnectionPoolConfiguration configuration, AgroalDataSourceListener... listeners) {
+        this( configuration, true, listeners );
+    }
+
+    public ConnectionPool(AgroalConnectionPoolConfiguration configuration, boolean pooling, AgroalDataSourceListener... listeners) {
         this.configuration = configuration;
+        this.pooling = pooling;
         this.listeners = listeners;
 
         allConnections = new StampedCopyOnWriteArrayList<>( ConnectionHandler.class );
@@ -206,13 +212,13 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         if ( transactionIntegration.disassociate( handler.getConnection() ) ) {
             activeCount.decrement();
 
-            // resize on change of max-size
-            if ( allConnections.size() > configuration.maxSize() ) {
-                 handler.setState( FLUSH );
-                 allConnections.remove( handler );
-                 housekeepingExecutor.execute( new DestroyConnectionTask( handler ) );
+            // flush the connection if not pooling, or a downsize caused by a change of max-size
+            if ( !pooling || allConnections.size() > configuration.maxSize() ) {
+                handler.setState( FLUSH );
+                allConnections.remove( handler );
+                housekeepingExecutor.execute( new DestroyConnectionTask( handler ) );
             }
-            
+
             handler.resetConnection( configuration.connectionFactoryConfiguration() );
             localCache.get().add( handler );
 
@@ -276,7 +282,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
             return new UncheckedArrayList<ConnectionHandler>( ConnectionHandler.class );
         }
     }
-    
+
     // --- create //
 
     private final class CreateConnectionTask implements Runnable {

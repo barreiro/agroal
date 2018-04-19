@@ -17,7 +17,7 @@ import java.util.logging.Logger;
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
  */
-public final class DataSource implements AgroalDataSource {
+public class DataSource implements AgroalDataSource {
 
     private static final long serialVersionUID = 6485903416474487024L;
 
@@ -25,8 +25,12 @@ public final class DataSource implements AgroalDataSource {
     private final ConnectionPool connectionPool;
 
     public DataSource(AgroalDataSourceConfiguration dataSourceConfiguration, AgroalDataSourceListener... listeners) {
+        this( dataSourceConfiguration, new ConnectionPool( dataSourceConfiguration.connectionPoolConfiguration(), listeners ) );
+    }
+
+    protected DataSource(AgroalDataSourceConfiguration dataSourceConfiguration, ConnectionPool pool) {
         configuration = dataSourceConfiguration;
-        connectionPool = new ConnectionPool( dataSourceConfiguration.connectionPoolConfiguration(), listeners );
+        connectionPool = pool;
         dataSourceConfiguration.registerMetricsEnabledListener( connectionPool );
         connectionPool.onMetricsEnabled( dataSourceConfiguration.metricsEnabled() );
         connectionPool.init();
@@ -51,7 +55,7 @@ public final class DataSource implements AgroalDataSource {
 
     @Override
     public void flush(FlushMode mode) {
-        connectionPool.flush(mode);
+        connectionPool.flush( mode );
     }
 
     @Override

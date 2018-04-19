@@ -8,8 +8,6 @@ import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.AgroalDataSourceProvider;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
 
-import static io.agroal.api.configuration.AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL;
-
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
  */
@@ -17,6 +15,13 @@ public final class DataSourceProvider implements AgroalDataSourceProvider {
 
     @Override
     public AgroalDataSource getDataSource(AgroalDataSourceConfiguration config, AgroalDataSourceListener... listeners) {
-        return config.dataSourceImplementation() == AGROAL ? new DataSource( config, listeners ) : null;
+        switch ( config.dataSourceImplementation() ) {
+            case AGROAL:
+                return new DataSource( config, listeners );
+            case AGROAL_AUTOREAP:
+                return new AutoReapDataSource( config, listeners );
+            default:
+                return null;
+        }
     }
 }
