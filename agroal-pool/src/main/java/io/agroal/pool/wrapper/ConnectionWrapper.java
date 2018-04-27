@@ -67,6 +67,9 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
     // Flag to indicate that this ConnectionWrapper is currently enlisted with a transaction
     private boolean inTransaction = false;
 
+    // Flag to indicate that this ConnectionWrapper may require an implicit rollback when returning to the pool
+    private boolean implicitTransaction = false;
+
     // TODO: make trackStatements configurable
     // Flag to indicate that this ConnectionWrapper should track statements to close them on close()
     private boolean trackStatements = true;
@@ -128,6 +131,14 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
 
     // --- //
 
+    public void implicitEnlist() {
+        if ( !inTransaction ) {
+            implicitTransaction = true;
+        }
+    }
+
+    // --- //
+
     private Statement trackStatement(Statement statement) {
         if ( trackStatements && statement != null ) {
             Statement wrappedStatement = new StatementWrapper( this, statement );
@@ -177,6 +188,11 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
         if ( !inTransaction ) {
             closeTrackedStatements();
             transactionActiveCheck = NO_ACTIVE_TRANSACTION;
+
+            if ( implicitTransaction && !handler.getConnection().getAutoCommit() ) {
+                handler.getConnection().rollback();
+            }
+            implicitTransaction = false;
             handler.returnConnection();
         }
     }
@@ -208,6 +224,7 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
         if ( inTransaction ) {
             throw new SQLException( "Attempting to commit while taking part in a transaction" );
         }
+        implicitTransaction = false;
         wrappedConnection.commit();
     }
 
@@ -217,6 +234,7 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
             throw new SQLException( "Attempting to rollback while enlisted in a transaction" );
         }
         lazyEnlistmentCheck();
+        implicitTransaction = false;
         wrappedConnection.rollback();
     }
 
@@ -226,6 +244,7 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
             throw new SQLException( "Attempting to commit while enlisted in a transaction" );
         }
         lazyEnlistmentCheck();
+        implicitTransaction = false;
         wrappedConnection.rollback( savepoint );
     }
 

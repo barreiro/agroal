@@ -50,11 +50,14 @@ public final class ResultSetWrapper implements ResultSet {
 
     // --- //
 
+    private final ConnectionWrapper connection;
+
     private final StatementWrapper statement;
 
     private ResultSet wrappedResultSet;
 
-    public ResultSetWrapper(StatementWrapper statementWrapper, ResultSet resultSet) {
+    public ResultSetWrapper(ConnectionWrapper connectionWrapper, StatementWrapper statementWrapper, ResultSet resultSet) {
+        connection = connectionWrapper;
         statement = statementWrapper;
         wrappedResultSet = resultSet;
     }
@@ -593,16 +596,19 @@ public final class ResultSetWrapper implements ResultSet {
 
     @Override
     public void insertRow() throws SQLException {
+        connection.implicitEnlist();
         wrappedResultSet.insertRow();
     }
 
     @Override
     public void updateRow() throws SQLException {
+        connection.implicitEnlist();
         wrappedResultSet.updateRow();
     }
 
     @Override
     public void deleteRow() throws SQLException {
+        connection.implicitEnlist();
         wrappedResultSet.deleteRow();
     }
 

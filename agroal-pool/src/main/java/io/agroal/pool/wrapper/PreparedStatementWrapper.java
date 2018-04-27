@@ -49,10 +49,13 @@ public final class PreparedStatementWrapper extends StatementWrapper implements 
 
     // --- //
 
+    private final ConnectionWrapper connection;
+
     private PreparedStatement wrappedStatement;
 
     public PreparedStatementWrapper(ConnectionWrapper connectionWrapper, PreparedStatement statement) {
         super( connectionWrapper, statement );
+        connection = connectionWrapper;
         wrappedStatement = statement;
     }
 
@@ -66,11 +69,13 @@ public final class PreparedStatementWrapper extends StatementWrapper implements 
 
     @Override
     public ResultSet executeQuery() throws SQLException {
+        connection.implicitEnlist();
         return trackResultSet( wrappedStatement.executeQuery() );
     }
 
     @Override
     public int executeUpdate() throws SQLException {
+        connection.implicitEnlist();
         return wrappedStatement.executeUpdate();
     }
 
@@ -177,6 +182,7 @@ public final class PreparedStatementWrapper extends StatementWrapper implements 
 
     @Override
     public boolean execute() throws SQLException {
+        connection.implicitEnlist();
         return wrappedStatement.execute();
     }
 
