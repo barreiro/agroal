@@ -186,14 +186,22 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
     public void close() throws SQLException {
         wrappedConnection = CLOSED_CONNECTION;
         if ( !inTransaction ) {
-            closeTrackedStatements();
-            transactionActiveCheck = NO_ACTIVE_TRANSACTION;
-
-            if ( implicitTransaction && !handler.getConnection().getAutoCommit() ) {
-                handler.getConnection().rollback();
+            try {
+                // Close statements and eventually rollback
+                closeTrackedStatements();
+                if ( implicitTransaction && !handler.getConnection().getAutoCommit() ) {
+                        handler.getConnection().rollback();
+                }
+            } catch ( SQLException e ) {
+                // In case of a fatal exception, this connection is no good and needs to be flushed
+                if ( handler.isFatal( e ) ) {
+                    handler.setState( ConnectionHandler.State.FLUSH );
+                }
+            } finally {
+                transactionActiveCheck = NO_ACTIVE_TRANSACTION;
+                implicitTransaction = false;
+                handler.returnConnection();
             }
-            implicitTransaction = false;
-            handler.returnConnection();
         }
     }
 

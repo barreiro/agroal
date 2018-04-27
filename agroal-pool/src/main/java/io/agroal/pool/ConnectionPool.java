@@ -106,7 +106,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         }
         allConnections.clear();
         housekeepingExecutor.shutdown();
-        
+
         activeCount.reset();
         synchronizer.release( synchronizer.getQueueLength() );
     }
@@ -202,7 +202,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
 
     // --- //
 
-    public void returnConnection(ConnectionHandler handler) throws SQLException {
+    public void returnConnection(ConnectionHandler handler) {
         fireBeforeConnectionReturn( listeners, handler );
         if ( leakEnabled ) {
             handler.setHoldingThread( null );
@@ -210,29 +210,40 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         if ( reapEnabled ) {
             handler.setLastAccess( nanoTime() );
         }
-        if ( transactionIntegration.disassociate( handler.getConnection() ) ) {
-            activeCount.decrement();
-
-            // resize on change of max-size
-            if ( allConnections.size() > configuration.maxSize() ) {
+        try {
+            if ( !transactionIntegration.disassociate( handler.getConnection() ) ) {
+                // Transaction holding the connection
+                return;
+            }
+        } catch ( SQLException e ) {
+            if ( handler.isFatal( e ) ) {
+                fireOnWarning( listeners, e );
                 handler.setState( FLUSH );
-                allConnections.remove( handler );
                 housekeepingExecutor.execute( new FlushTask( handler ) );
             }
+        }
 
-            handler.resetConnection( configuration.connectionFactoryConfiguration() );
-            localCache.get().add( handler );
+        activeCount.decrement();
 
-            if ( handler.setState( CHECKED_OUT, CHECKED_IN ) ) {
-                // here the handler is already up for grabs
-                synchronizer.releaseConditional();
-                metricsRepository.afterConnectionReturn();
-                fireOnConnectionReturn( listeners, handler );
-            } else {
-                // handler not in CHECKED_OUT implies FLUSH
-                housekeepingExecutor.execute( new FlushTask( handler ) );
-                housekeepingExecutor.execute( new FillTask() );
-            }
+        // resize on change of max-size
+        if ( allConnections.size() > configuration.maxSize() ) {
+            handler.setState( FLUSH );
+            allConnections.remove( handler );
+            housekeepingExecutor.execute( new FlushTask( handler ) );
+        }
+
+        handler.resetConnection( configuration.connectionFactoryConfiguration() );
+        localCache.get().add( handler );
+
+        if ( handler.setState( CHECKED_OUT, CHECKED_IN ) ) {
+            // here the handler is already up for grabs
+            synchronizer.releaseConditional();
+            metricsRepository.afterConnectionReturn();
+            fireOnConnectionReturn( listeners, handler );
+        } else {
+            // handler not in CHECKED_OUT implies FLUSH
+            housekeepingExecutor.execute( new FlushTask( handler ) );
+            housekeepingExecutor.execute( new FillTask() );
         }
     }
 

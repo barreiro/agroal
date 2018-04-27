@@ -9,6 +9,8 @@ import javax.sql.XAConnection;
 import javax.transaction.xa.XAResource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
@@ -23,6 +25,18 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater
 public final class ConnectionHandler {
 
     private static final AtomicReferenceFieldUpdater<ConnectionHandler, State> stateUpdater = newUpdater( ConnectionHandler.class, State.class, "state" );
+
+    private static final Collection<String> FATAL_STATES = new HashSet<>();
+
+    private static final Collection<Integer> FATAL_CODES = new HashSet<>();
+
+    static {
+        // This are 'extra' SQL states and error codes that invalidate the connection
+
+        FATAL_STATES.add( "0A000" ); // Feature not implemented: <featureName>
+
+        FATAL_CODES.add( 3113 );  // ORA-03113: end-of-file on communication channel
+    }
 
     private final Connection connection;
 
@@ -61,21 +75,27 @@ public final class ConnectionHandler {
         return xaResource;
     }
 
-    public void returnConnection() throws SQLException {
+    public void returnConnection() {
         connectionPool.returnConnection( this );
     }
 
-    public void resetConnection(AgroalConnectionFactoryConfiguration connectionFactoryConfiguration) throws SQLException {
+    public void resetConnection(AgroalConnectionFactoryConfiguration connectionFactoryConfiguration) {
         if ( !dirtyAttributes.isEmpty() ) {
-            if ( dirtyAttributes.contains( AUTOCOMMIT ) ) {
-                connection.setAutoCommit( connectionFactoryConfiguration.autoCommit() );
-            }
-            if ( dirtyAttributes.contains( TRANSACTION_ISOLATION ) ) {
-                connection.setTransactionIsolation( connectionFactoryConfiguration.jdbcTransactionIsolation().level() );
-            }
-            // other attributes do not have default values in connectionFactoryConfiguration
+            try {
+                if ( dirtyAttributes.contains( AUTOCOMMIT ) ) {
+                    connection.setAutoCommit( connectionFactoryConfiguration.autoCommit() );
+                }
+                if ( dirtyAttributes.contains( TRANSACTION_ISOLATION ) ) {
+                    connection.setTransactionIsolation( connectionFactoryConfiguration.jdbcTransactionIsolation().level() );
+                }
+                // other attributes do not have default values in connectionFactoryConfiguration
 
-            dirtyAttributes.clear();
+                dirtyAttributes.clear();
+            } catch ( SQLException e ) {
+                if ( isFatal( e ) ) {
+                    setState( State.FLUSH );
+                }
+            }
         }
     }
 
@@ -132,6 +152,22 @@ public final class ConnectionHandler {
 
     public void setDirtyAttribute(DirtyAttribute attribute) {
         dirtyAttributes.add( attribute );
+    }
+
+    // --- //
+
+    public boolean isFatal(Iterable<Throwable> exception) {
+        for ( Throwable t : exception ) {
+            if ( t instanceof SQLException ) {
+                String sqlState = ( (SQLException) t ).getSQLState();
+                int sqlCode = ( (SQLException) t ).getErrorCode();
+
+                if ( sqlState != null && sqlState.startsWith( "08" ) || FATAL_STATES.contains( sqlState ) || FATAL_CODES.contains( sqlCode ) ) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     // --- //
