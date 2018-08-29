@@ -7,10 +7,12 @@ import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.configuration.AgroalConnectionFactoryConfiguration;
 import io.agroal.api.security.NamePrincipal;
 import io.agroal.api.security.SimplePassword;
+import io.agroal.api.transaction.TransactionIntegration.ResourceRecoveryFactory;
 import io.agroal.pool.util.PropertyInjector;
 import io.agroal.pool.util.XAConnectionAdaptor;
 
 import javax.sql.XAConnection;
+import javax.transaction.xa.XAResource;
 import java.lang.reflect.InvocationTargetException;
 import java.security.Principal;
 import java.sql.Connection;
@@ -24,7 +26,9 @@ import static io.agroal.pool.util.ListenerHelper.fireOnWarning;
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
  */
-public final class ConnectionFactory {
+public final class ConnectionFactory implements ResourceRecoveryFactory {
+
+    public static final XAResource[] NO_RESOURCES = {};
 
     private static final String URL_PROPERTY_NAME = "url";
     private static final String USER_PROPERTY_NAME = "user";
@@ -216,20 +220,18 @@ public final class ConnectionFactory {
 
     // --- //
 
-    public XAConnection recoveryConnection() throws SQLException {
-        switch ( factoryMode ) {
-            case DRIVER:
-                java.sql.Driver recoveryDriver = newDriver();
-                return new XAConnectionAdaptor( connectionSetup( recoveryDriver.connect( configuration.jdbcUrl(), recoveryProperties ) ) );
-            case DATASOURCE:
-                javax.sql.DataSource recoveryDataSource = newDataSource( recoveryProperties );
-                return new XAConnectionAdaptor( connectionSetup( recoveryDataSource.getConnection() ) );
-            case XA_DATASOURCE:
-                javax.sql.XADataSource recoveryXADataSource = newXADataSource( recoveryProperties );
-                return xaConnectionSetup( recoveryXADataSource.getXAConnection() );
-            default:
-                throw new SQLException( "Unknown connection factory mode" );
+    @Override
+    public XAResource[] recoveryResources() {
+        try {
+            if ( factoryMode == Mode.XA_DATASOURCE ) {
+                return new XAResource[]{newXADataSource( recoveryProperties ).getXAConnection().getXAResource()};
+            } else {
+                fireOnWarning( listeners, "Recovery connections are only available for XADataSource" );
+            }
+        } catch ( SQLException e ) {
+            fireOnWarning( listeners, "Unable to get recovery connection: " + e.getMessage() );
         }
+        return NO_RESOURCES;
     }
 
     // --- //
