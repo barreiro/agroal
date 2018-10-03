@@ -84,8 +84,9 @@ public final class ConnectionHandler {
 
     public void closeConnection() throws SQLException {
         try {
-            if ( state != State.FLUSH ) {
-                throw new SQLException( "Closing connection in incorrect state " + state );
+            State observedState = stateUpdater.get( this );
+            if ( observedState != State.FLUSH ) {
+                throw new SQLException( "Closing connection in incorrect state " + observedState );
             }
         } finally {
             connection.close();

@@ -29,6 +29,7 @@ import static io.agroal.pool.ConnectionHandler.State.CHECKED_IN;
 import static io.agroal.pool.ConnectionHandler.State.CHECKED_OUT;
 import static io.agroal.pool.ConnectionHandler.State.DESTROYED;
 import static io.agroal.pool.ConnectionHandler.State.FLUSH;
+import static io.agroal.pool.ConnectionHandler.State.NEW;
 import static io.agroal.pool.ConnectionHandler.State.VALIDATION;
 import static io.agroal.pool.util.ListenerHelper.*;
 import static java.lang.System.identityHashCode;
@@ -251,6 +252,12 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
                 synchronizer.releaseConditional();
                 metricsRepository.afterConnectionReturn();
                 fireOnConnectionReturn( listeners, handler );
+            } else if ( handler.setState( CHECKED_IN, CHECKED_IN ) ) {
+                // a check for AG-94
+                fireOnWarning( listeners, "AG-94: Returning connection to the pool already in CHECK_IN state" );
+                synchronizer.releaseConditional();
+                metricsRepository.afterConnectionReturn();
+                fireOnConnectionReturn( listeners, handler );
             } else {
                 // handler not in CHECKED_OUT implies FLUSH
                 housekeepingExecutor.execute( new FlushTask( handler ) );
@@ -318,7 +325,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
 
             try {
                 ConnectionHandler handler = new ConnectionHandler( connectionFactory.createConnection(), ConnectionPool.this );
-                handler.setState( CHECKED_IN );
+                handler.setState( NEW, CHECKED_IN );
                 allConnections.add( handler );
                 maxUsed.accumulate( allConnections.size() );
                 metricsRepository.afterConnectionCreation( metricsStamp );
@@ -388,7 +395,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
                     if ( handler.setState( CHECKED_IN, VALIDATION ) ) {
                         if ( configuration.connectionValidator().isValid( handler.getConnection() ) ) {
                             fireOnConnectionValid( listeners, handler );
-                            handler.setState( CHECKED_IN );
+                            handler.setState( VALIDATION, CHECKED_IN );
                         } else {
                             fireOnConnectionInvalid( listeners, handler );
                             flushHandler( handler );
@@ -494,10 +501,10 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
                 fireBeforeConnectionValidation( listeners, handler );
                 if ( handler.setState( CHECKED_IN, VALIDATION ) ) {
                     if ( configuration.connectionValidator().isValid( handler.getConnection() ) ) {
-                        handler.setState( CHECKED_IN );
+                        handler.setState( VALIDATION, CHECKED_IN );
                         fireOnConnectionValid( listeners, handler );
                     } else {
-                        handler.setState( FLUSH );
+                        handler.setState( VALIDATION, FLUSH );
                         allConnections.remove( handler );
                         metricsRepository.afterConnectionInvalid();
                         fireOnConnectionInvalid( listeners, handler );
@@ -542,7 +549,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
                         fireOnConnectionReap( listeners, handler );
                         housekeepingExecutor.execute( new DestroyConnectionTask( handler ) );
                     } else {
-                        handler.setState( CHECKED_IN );
+                        handler.setState( FLUSH, CHECKED_IN );
                         // for debug, something like: fireOnWarning( listeners,  "Connection " + handler.getConnection() + " used recently. Do not reap!" );
                     }
                 }

@@ -9,7 +9,7 @@
     </parent>
     <groupId>io.agroal</groupId>
     <artifactId>agroal-parent</artifactId>
-    <version>1.2-SNAPSHOT</version>
+    <version>1.2-AG94</version>
     <packaging>pom</packaging>
     <name>Agroal</name>
     <description>The natural database connection pool</description>

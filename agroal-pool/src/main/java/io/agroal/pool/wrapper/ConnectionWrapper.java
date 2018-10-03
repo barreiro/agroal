@@ -27,6 +27,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.lang.reflect.Proxy.newProxyInstance;
 
@@ -70,7 +71,7 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
     private Connection wrappedConnection;
 
     // This boolean prevents the connection to be returned to the pool multiple times
-    private boolean returnedHandler = false;
+    private AtomicBoolean returnedHandler = new AtomicBoolean( false );
 
     // TODO: make trackStatements configurable
     // Flag to indicate that this ConnectionWrapper should track statements to close them on close()
@@ -179,8 +180,7 @@ public final class ConnectionWrapper implements Connection, TransactionAware {
     @Override
     public void close() throws SQLException {
         wrappedConnection = CLOSED_CONNECTION;
-        if ( !handler.isEnlisted() && !returnedHandler ) {
-            returnedHandler = true;
+        if ( !handler.isEnlisted() && returnedHandler.compareAndSet( false, true ) ) {
             closeTrackedStatements();
             transactionActiveCheck = NO_ACTIVE_TRANSACTION;
             handler.returnConnection();
