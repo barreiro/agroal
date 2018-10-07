@@ -134,6 +134,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         ConnectionWrapper connectionWrapper = wrapperFromTransaction();
         if ( connectionWrapper != null ) {
             checkedOutHandler = connectionWrapper.getHandler();
+            activeCount.decrement();
         }
         if ( checkedOutHandler == null ) {
             checkedOutHandler = handlerFromLocalCache();

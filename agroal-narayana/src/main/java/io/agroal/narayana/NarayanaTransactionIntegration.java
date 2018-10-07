@@ -76,7 +76,7 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
         try {
             if ( transactionRunning() ) {
                 boolean newEnlistment = transactionSynchronizationRegistry.getResource( key ) == null;
-                transactionSynchronizationRegistry.registerInterposedSynchronization( new InterposedSynchronization( connection ) );
+                transactionSynchronizationRegistry.registerInterposedSynchronization( new InterposedSynchronization( connection, newEnlistment ) );
 
                 if ( newEnlistment ) {
                     transactionSynchronizationRegistry.putResource( key, connection );
@@ -140,22 +140,32 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
 
         private final Connection connection;
 
-        private InterposedSynchronization(Connection connection) {
+        private final boolean returnToPool;
+
+        private InterposedSynchronization(Connection connection, boolean returnToPool) {
             this.connection = connection;
+            this.returnToPool = returnToPool;
         }
 
         @Override
         public void beforeCompletion() {
-            // nothing to do
-        }
-
-        @Override
-        public void afterCompletion(int status) {
-            // Return connection to the pool
+            // Called before tx.end(). Closes the connection wrapper but will not return the connection to the pool
             try {
                 connection.close();
             } catch ( SQLException ignore ) {
                 // ignore
+            }
+        }
+
+        @Override
+        public void afterCompletion(int status) {
+            // Called after tx.end(). Returns the connection to the pool. To be called only in one of the connection wrappers
+            if ( returnToPool ) {
+                try {
+                    connection.close();
+                } catch ( SQLException ignore ) {
+                    // ignore
+                }
             }
         }
     }
