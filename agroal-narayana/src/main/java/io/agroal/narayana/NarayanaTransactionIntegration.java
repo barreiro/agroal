@@ -64,37 +64,37 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
     }
 
     @Override
-    public Connection getConnection() throws SQLException {
+    public TransactionAware getTransactionAware() throws SQLException {
         if ( transactionRunning() ) {
-            return (Connection) transactionSynchronizationRegistry.getResource( key );
+            return (TransactionAware) transactionSynchronizationRegistry.getResource( key );
         }
         return null;
     }
 
     @Override
-    public void associate(Connection connection, XAResource xaResource) throws SQLException {
+    public void associate(TransactionAware transactionAware, XAResource xaResource) throws SQLException {
         try {
             if ( transactionRunning() ) {
                 boolean newEnlistment = transactionSynchronizationRegistry.getResource( key ) == null;
-                transactionSynchronizationRegistry.registerInterposedSynchronization( new InterposedSynchronization( connection ) );
 
                 if ( newEnlistment ) {
-                    transactionSynchronizationRegistry.putResource( key, connection );
+                    transactionSynchronizationRegistry.registerInterposedSynchronization( new InterposedSynchronization( transactionAware ) );
+                    transactionSynchronizationRegistry.putResource( key, transactionAware );
 
                     XAResource xaResourceToEnlist;
                     if ( xaResource != null ) {
-                        xaResourceToEnlist = new BaseXAResource( (TransactionAware) connection, xaResource, jndiName );
+                        xaResourceToEnlist = new BaseXAResource( transactionAware, xaResource, jndiName );
                     } else if ( connectable ) {
-                        xaResourceToEnlist = new ConnectableLocalXAResource( (TransactionAware) connection, jndiName );
+                        xaResourceToEnlist = new ConnectableLocalXAResource( transactionAware, jndiName );
                     } else {
-                        xaResourceToEnlist = new LocalXAResource( (TransactionAware) connection, jndiName );
+                        xaResourceToEnlist = new LocalXAResource( transactionAware, jndiName );
                     }
                     transactionManager.getTransaction().enlistResource( xaResourceToEnlist );
                 } else {
-                    ( (TransactionAware) connection ).transactionStart();
+                    ( transactionAware).transactionStart();
                 }
             } else {
-                ( (TransactionAware) connection ).transactionCheckCallback( this::transactionRunning );
+                ( transactionAware ).transactionCheckCallback( this::transactionRunning );
             }
         } catch ( Exception e ) {
             throw new SQLException( "Exception in association of connection to existing transaction", e );
@@ -102,7 +102,7 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
     }
 
     @Override
-    public boolean disassociate(Connection connection) throws SQLException {
+    public boolean disassociate(TransactionAware connection) throws SQLException {
         if ( transactionRunning() ) {
             transactionSynchronizationRegistry.putResource( key, null );
         }
@@ -138,10 +138,10 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
 
     private static class InterposedSynchronization implements Synchronization {
 
-        private final Connection connection;
+        private final TransactionAware transactionAware;
 
-        private InterposedSynchronization(Connection connection) {
-            this.connection = connection;
+        private InterposedSynchronization(TransactionAware transactionAware) {
+            this.transactionAware = transactionAware;
         }
 
         @Override
@@ -153,7 +153,7 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
         public void afterCompletion(int status) {
             // Return connection to the pool
             try {
-                connection.close();
+                transactionAware.transactionEnd();
             } catch ( SQLException ignore ) {
                 // ignore
             }
