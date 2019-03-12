@@ -278,7 +278,7 @@ public class BasicTests {
                 if ( !destroyLatch.await( 2L * REAP_TIMEOUT_MS, MILLISECONDS ) ) {
                     fail( format( "{0} idle connections not sent for destruction", destroyLatch.getCount() ) );
                 }
-                assertEquals( MAX_POOL_SIZE - MIN_POOL_SIZE, reapCount.longValue(), "Unexpected number of idle connections " );
+                assertEquals( MAX_POOL_SIZE - MIN_POOL_SIZE, reapCount.longValue(), "Unexpected number of idle connections" );
             } catch ( InterruptedException e ) {
                 fail( "Test fail due to interrupt" );
             }
