@@ -17,16 +17,16 @@ import java.util.logging.Logger;
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
  */
-public final class DataSource implements AgroalDataSource {
+public final class PoolessDataSource implements AgroalDataSource {
 
     private static final long serialVersionUID = 6485903416474487024L;
 
     private final AgroalDataSourceConfiguration configuration;
     private final ConnectionPool connectionPool;
 
-    public DataSource(AgroalDataSourceConfiguration dataSourceConfiguration, AgroalDataSourceListener... listeners) {
+    public PoolessDataSource(AgroalDataSourceConfiguration dataSourceConfiguration, AgroalDataSourceListener... listeners) {
         configuration = dataSourceConfiguration;
-        connectionPool = new ConnectionPool( dataSourceConfiguration.connectionPoolConfiguration(), true, listeners );
+        connectionPool = new ConnectionPool( dataSourceConfiguration.connectionPoolConfiguration(), false, listeners );
         dataSourceConfiguration.registerMetricsEnabledListener( connectionPool );
         connectionPool.onMetricsEnabled( dataSourceConfiguration.metricsEnabled() );
         connectionPool.init();

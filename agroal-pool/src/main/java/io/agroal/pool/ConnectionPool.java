@@ -52,6 +52,8 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
     private final PriorityScheduledExecutor housekeepingExecutor;
     private final TransactionIntegration transactionIntegration;
 
+    private final boolean poolEnabled;
+
     private final boolean idleValidationEnabled;
     private final boolean leakEnabled;
     private final boolean validationEnabled;
@@ -63,7 +65,7 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
     private MetricsRepository metricsRepository;
     private ThreadLocal<List<ConnectionHandler>> localCache;
 
-    public ConnectionPool(AgroalConnectionPoolConfiguration configuration, AgroalDataSourceListener... listeners) {
+    public ConnectionPool(AgroalConnectionPoolConfiguration configuration, boolean pool, AgroalDataSourceListener... listeners) {
         this.configuration = configuration;
         this.listeners = listeners;
 
@@ -75,6 +77,8 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         housekeepingExecutor = new PriorityScheduledExecutor( 1, "Agroal_" + identityHashCode( this ) );
         transactionIntegration = configuration.transactionIntegration();
 
+        poolEnabled = pool;
+        
         idleValidationEnabled = !configuration.idleValidationTimeout().isZero();
         leakEnabled = !configuration.leakTimeout().isZero();
         validationEnabled = !configuration.validationTimeout().isZero();
@@ -270,8 +274,8 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         if ( transactionIntegration.disassociate( handler ) ) {
             activeCount.decrement();
 
-            // resize on change of max-size
-            if ( allConnections.size() > configuration.maxSize() ) {
+            // resize on change of max-size, or pooless
+            if ( allConnections.size() > configuration.maxSize() || ( !poolEnabled && allConnections.size() > configuration.minSize() ) ) {
                 handler.setState( FLUSH );
                 allConnections.remove( handler );
                 housekeepingExecutor.execute( new FlushTask( ALL, handler ) );
