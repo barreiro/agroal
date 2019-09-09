@@ -32,6 +32,8 @@ public interface AgroalConnectionPoolConfiguration {
 
     Duration maxLifetime();
 
+    boolean aggressiveReap();
+
     int initialSize();
 
     // --- Mutable attributes //

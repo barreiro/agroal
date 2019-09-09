@@ -52,6 +52,8 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
     private final PriorityScheduledExecutor housekeepingExecutor;
     private final TransactionIntegration transactionIntegration;
 
+    private final boolean aggressive;
+
     private final boolean idleValidationEnabled;
     private final boolean leakEnabled;
     private final boolean validationEnabled;
@@ -75,6 +77,8 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         housekeepingExecutor = new PriorityScheduledExecutor( 1, "Agroal_" + identityHashCode( this ) );
         transactionIntegration = configuration.transactionIntegration();
 
+        aggressive = configuration.aggressiveReap();
+        
         idleValidationEnabled = !configuration.idleValidationTimeout().isZero();
         leakEnabled = !configuration.leakTimeout().isZero();
         validationEnabled = !configuration.validationTimeout().isZero();
@@ -270,8 +274,9 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         if ( transactionIntegration.disassociate( handler ) ) {
             activeCount.decrement();
 
-            // resize on change of max-size
-            if ( allConnections.size() > configuration.maxSize() ) {
+            // resize on change of max-size, or aggressive
+            int currentSize = allConnections.size();
+            if ( currentSize > configuration.maxSize() || aggressive && currentSize > configuration.minSize() ) {
                 handler.setState( FLUSH );
                 allConnections.remove( handler );
                 housekeepingExecutor.execute( new FlushTask( ALL, handler ) );
