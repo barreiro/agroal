@@ -270,8 +270,9 @@ public final class ConnectionPool implements MetricsEnabledListener, AutoCloseab
         if ( transactionIntegration.disassociate( handler ) ) {
             activeCount.decrement();
 
-            // resize on change of max-size
-            if ( allConnections.size() > configuration.maxSize() ) {
+            // resize on change of max-size, or flush on close
+            int currentSize = allConnections.size();
+            if ( currentSize > configuration.maxSize() || configuration.flushOnClose() && currentSize > configuration.minSize() ) {
                 handler.setState( FLUSH );
                 allConnections.remove( handler );
                 housekeepingExecutor.execute( new FlushTask( ALL, handler ) );
