@@ -4,7 +4,7 @@
 package io.agroal.pool.wrapper;
 
 import io.agroal.pool.ConnectionHandler;
-import io.agroal.pool.util.StampedCopyOnWriteArrayList;
+import io.agroal.pool.util.UncheckedCopyOnWriteArrayList;
 
 import java.lang.reflect.InvocationHandler;
 import java.sql.Array;
@@ -68,7 +68,7 @@ public final class ConnectionWrapper implements Connection {
     public ConnectionWrapper(ConnectionHandler connectionHandler, boolean trackResources) {
         handler = connectionHandler;
         wrappedConnection = connectionHandler.getConnection();
-        trackedStatements = trackResources ? new StampedCopyOnWriteArrayList<>( Statement.class ) : null;
+        trackedStatements = trackResources ? new UncheckedCopyOnWriteArrayList<>( Statement.class ) : null;
     }
 
     public ConnectionHandler getHandler() {
@@ -148,6 +148,17 @@ public final class ConnectionWrapper implements Connection {
     }
 
     @Override
+    public boolean getAutoCommit() throws SQLException {
+        try {
+            handler.deferredEnlistmentCheck();
+            return wrappedConnection.getAutoCommit();
+        } catch ( SQLException se ) {
+            handler.setFlushOnly( se );
+            throw se;
+        }
+    }
+
+    @Override
     public void setAutoCommit(boolean autoCommit) throws SQLException {
         if ( autoCommit && handler.isEnlisted() ) {
             handler.setFlushOnly();
@@ -159,17 +170,6 @@ public final class ConnectionWrapper implements Connection {
                 handler.setDirtyAttribute( ConnectionHandler.DirtyAttribute.AUTOCOMMIT );
                 wrappedConnection.setAutoCommit( autoCommit );
             }
-        } catch ( SQLException se ) {
-            handler.setFlushOnly( se );
-            throw se;
-        }
-    }
-
-    @Override
-    public boolean getAutoCommit() throws SQLException {
-        try {
-            handler.deferredEnlistmentCheck();
-            return wrappedConnection.getAutoCommit();
         } catch ( SQLException se ) {
             handler.setFlushOnly( se );
             throw se;

@@ -4,6 +4,7 @@
 package io.agroal.pool.wrapper;
 
 import io.agroal.pool.util.StampedCopyOnWriteArrayList;
+import io.agroal.pool.util.UncheckedCopyOnWriteArrayList;
 
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
@@ -52,7 +53,7 @@ public class StatementWrapper implements Statement {
     public StatementWrapper(ConnectionWrapper connectionWrapper, Statement statement, boolean trackResources) {
         connection = connectionWrapper;
         wrappedStatement = statement;
-        trackedResultSets = trackResources ? new StampedCopyOnWriteArrayList<>( ResultSet.class ) : null;
+        trackedResultSets = trackResources ? new UncheckedCopyOnWriteArrayList<>( ResultSet.class ) : null;
     }
 
     // --- //
