@@ -6,11 +6,13 @@ package io.agroal.pool;
 import io.agroal.api.AgroalDataSource.FlushMode;
 import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.AgroalDataSourceMetrics;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.AgroalConnectionPoolConfiguration;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration.MetricsEnabledListener;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
@@ -26,6 +28,10 @@ public interface Pool extends MetricsEnabledListener, AutoCloseable {
     AgroalDataSourceMetrics getMetrics();
 
     AgroalDataSourceListener[] getListeners();
+
+    List<AgroalPoolInterceptor> getPoolInterceptors();
+
+    void setPoolInterceptors(List<AgroalPoolInterceptor> list);
 
     void returnConnectionHandler(ConnectionHandler handler) throws SQLException;
 

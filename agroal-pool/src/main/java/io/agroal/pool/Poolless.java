@@ -5,6 +5,7 @@ package io.agroal.pool;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.AgroalConnectionPoolConfiguration;
 import io.agroal.api.transaction.TransactionIntegration;
 import io.agroal.pool.MetricsRepository.EmptyMetricsRepository;
@@ -13,13 +14,18 @@ import io.agroal.pool.util.StampedCopyOnWriteArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAccumulator;
+import java.util.function.Function;
 
 import static io.agroal.api.AgroalDataSource.FlushMode.ALL;
 import static io.agroal.pool.ConnectionHandler.State.CHECKED_OUT;
 import static io.agroal.pool.ConnectionHandler.State.DESTROYED;
 import static io.agroal.pool.ConnectionHandler.State.FLUSH;
+import static io.agroal.pool.util.InterceptorHelper.fireOnConnectionAcquiredInterceptor;
+import static io.agroal.pool.util.InterceptorHelper.fireOnConnectionReturnInterceptor;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionAcquire;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionCreation;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionDestroy;
@@ -34,6 +40,7 @@ import static io.agroal.pool.util.ListenerHelper.fireOnInfo;
 import static io.agroal.pool.util.ListenerHelper.fireOnWarning;
 import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
+import static java.util.stream.Collectors.joining;
 
 /**
  * Alternative implementation of ConnectionPool for the special case of flush-on-close (and min-size == 0)
@@ -55,6 +62,7 @@ public final class Poolless implements Pool {
     private final LongAccumulator maxUsed = new LongAccumulator( Math::max, Long.MIN_VALUE );
     private final AtomicInteger activeCount = new AtomicInteger();
 
+    private List<AgroalPoolInterceptor> interceptors;
     private MetricsRepository metricsRepository;
     private volatile boolean shutdown;
 
@@ -100,6 +108,16 @@ public final class Poolless implements Pool {
         return listeners;
     }
 
+    public List<AgroalPoolInterceptor> getPoolInterceptors() {
+        return interceptors;
+    }
+
+    public void setPoolInterceptors(List<AgroalPoolInterceptor> list) {
+        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + Integer.toHexString( System.identityHashCode( i ) );
+        fireOnInfo( listeners, "Pool interceptors: " + ( list == null ? Collections.<AgroalPoolInterceptor>emptyList() : list ).stream().map( interceptorName ).collect( joining( ", ", "[", "]" ) ) );
+        interceptors = list;
+    }
+
     // --- //
 
     @Override
@@ -129,6 +147,7 @@ public final class Poolless implements Pool {
         ConnectionHandler checkedOutHandler = handlerFromTransaction();
         if ( checkedOutHandler == null ) {
             checkedOutHandler = handlerFromSharedCache();
+            fireOnConnectionAcquiredInterceptor( interceptors, checkedOutHandler );
         }
 
         metricsRepository.afterConnectionAcquire( metricsStamp );
@@ -176,9 +195,9 @@ public final class Poolless implements Pool {
     public void returnConnectionHandler(ConnectionHandler handler) throws SQLException {
         fireBeforeConnectionReturn( listeners, handler );
         if ( transactionIntegration.disassociate( handler ) ) {
+            fireOnConnectionReturnInterceptor( interceptors, handler );
             activeCount.decrementAndGet();
             synchronizer.releaseConditional();
-
             flushHandler( handler );
         }
     }

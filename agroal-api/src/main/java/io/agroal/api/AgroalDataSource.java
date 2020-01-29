@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.function.Supplier;
 
 import static java.util.ServiceLoader.load;
@@ -68,6 +69,16 @@ public interface AgroalDataSource extends AutoCloseable, DataSource, Serializabl
      * Performs a flush action on the connections of the pool.
      */
     void flush(FlushMode mode);
+
+    /**
+     * Sets pool interceptors.
+     */
+    void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors);
+
+    /**
+     * Get the list of pool interceptors.
+     */
+    List<AgroalPoolInterceptor> getPoolInterceptors();
 
     /**
      * {@inheritDoc}

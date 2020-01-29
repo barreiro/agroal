@@ -5,6 +5,7 @@ package io.agroal.pool;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.AgroalConnectionPoolConfiguration;
 import io.agroal.api.transaction.TransactionIntegration;
 import io.agroal.pool.MetricsRepository.EmptyMetricsRepository;
@@ -15,6 +16,7 @@ import io.agroal.pool.util.UncheckedArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -22,6 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Function;
 
 import static io.agroal.api.AgroalDataSource.FlushMode.ALL;
 import static io.agroal.api.AgroalDataSource.FlushMode.GRACEFUL;
@@ -30,6 +33,8 @@ import static io.agroal.pool.ConnectionHandler.State.CHECKED_OUT;
 import static io.agroal.pool.ConnectionHandler.State.DESTROYED;
 import static io.agroal.pool.ConnectionHandler.State.FLUSH;
 import static io.agroal.pool.ConnectionHandler.State.VALIDATION;
+import static io.agroal.pool.util.InterceptorHelper.fireOnConnectionAcquiredInterceptor;
+import static io.agroal.pool.util.InterceptorHelper.fireOnConnectionReturnInterceptor;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionAcquire;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionCreation;
 import static io.agroal.pool.util.ListenerHelper.fireBeforeConnectionDestroy;
@@ -54,6 +59,7 @@ import static java.lang.System.identityHashCode;
 import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static java.util.stream.Collectors.joining;
 
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
@@ -80,6 +86,7 @@ public final class ConnectionPool implements Pool {
 
     private MetricsRepository metricsRepository;
     private ThreadLocal<List<ConnectionHandler>> localCache;
+    private List<AgroalPoolInterceptor> interceptors;
 
     public ConnectionPool(AgroalConnectionPoolConfiguration configuration, AgroalDataSourceListener... listeners) {
         this.configuration = configuration;
@@ -131,6 +138,16 @@ public final class ConnectionPool implements Pool {
         return listeners;
     }
 
+    public List<AgroalPoolInterceptor> getPoolInterceptors() {
+        return interceptors;
+    }
+
+    public void setPoolInterceptors(List<AgroalPoolInterceptor> list) {
+        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + Integer.toHexString( System.identityHashCode( i ) );
+        fireOnInfo( listeners, "Pool interceptors: " + (list == null ? Collections.<AgroalPoolInterceptor>emptyList() : list).stream().map( interceptorName ).collect( joining( ", ", "[", "]" ) ) );
+        interceptors = list;
+    }
+
     public void flushPool(AgroalDataSource.FlushMode mode) {
         housekeepingExecutor.execute( new FlushTask( mode ) );
     }
@@ -174,6 +191,7 @@ public final class ConnectionPool implements Pool {
                 }
             } while ( idleValidationEnabled && !idleValidation( checkedOutHandler ) );
             activeCount.increment();
+            fireOnConnectionAcquiredInterceptor( interceptors, checkedOutHandler );
         }
 
         metricsRepository.afterConnectionAcquire( metricsStamp );
@@ -307,6 +325,7 @@ public final class ConnectionPool implements Pool {
 
             handler.resetConnection();
             localCache.get().add( handler );
+            fireOnConnectionReturnInterceptor( interceptors, handler );
 
             if ( handler.setState( CHECKED_OUT, CHECKED_IN ) ) {
                 // here the handler is already up for grabs

@@ -8,6 +8,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.AgroalDataSourceMetrics;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.AgroalConnectionFactoryConfiguration;
 import io.agroal.api.configuration.AgroalConnectionPoolConfiguration;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
@@ -17,6 +18,8 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Collections;
+import java.util.List;
 import java.util.Properties;
 import java.util.logging.Logger;
 
@@ -87,6 +90,16 @@ public class HikariUnderTheCovers implements AgroalDataSource {
     }
 
     // --- //
+
+    @Override
+    public void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors) {
+        throw new UnsupportedOperationException( "Hikari pool does not support interceptors" );
+    }
+
+    @Override
+    public List<AgroalPoolInterceptor> getPoolInterceptors() {
+        return Collections.emptyList();
+    }
 
     @Override
     public AgroalDataSourceConfiguration getConfiguration() {

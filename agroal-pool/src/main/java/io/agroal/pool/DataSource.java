@@ -6,12 +6,14 @@ package io.agroal.pool;
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.AgroalDataSourceMetrics;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
 
 import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.List;
 import java.util.logging.Logger;
 
 /**
@@ -38,6 +40,16 @@ public final class DataSource implements AgroalDataSource {
     }
 
     // --- AgroalDataSource methods //
+
+    @Override
+    public void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors) {
+        connectionPool.setPoolInterceptors( interceptors );
+    }
+
+    @Override
+    public List<AgroalPoolInterceptor> getPoolInterceptors() {
+        return connectionPool.getPoolInterceptors();
+    }
 
     @Override
     public AgroalDataSourceConfiguration getConfiguration() {
