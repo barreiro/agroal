@@ -67,6 +67,16 @@ public interface AgroalConnectionPoolConfiguration {
     Duration maxLifetime();
 
     /**
+     * A SQL command to be executed when a connection is acquired.
+     */
+    String acquireSql();
+
+    /**
+     * A SQL command to be executed when a connection returns to the pool.
+     */
+    String returnSql();
+
+    /**
      * If connections should be flushed when returning to the pool.
      */
     boolean flushOnClose();

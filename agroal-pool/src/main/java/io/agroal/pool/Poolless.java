@@ -13,6 +13,7 @@ import io.agroal.pool.util.StampedCopyOnWriteArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAccumulator;
 
@@ -129,6 +130,11 @@ public final class Poolless implements Pool {
         ConnectionHandler checkedOutHandler = handlerFromTransaction();
         if ( checkedOutHandler == null ) {
             checkedOutHandler = handlerFromSharedCache();
+            if ( configuration.acquireSql() != null && !configuration.acquireSql().isEmpty() ) {
+                try ( Statement statement = checkedOutHandler.getConnection().createStatement() ) {
+                    statement.execute( configuration.acquireSql() );
+                }
+            }
         }
 
         metricsRepository.afterConnectionAcquire( metricsStamp );

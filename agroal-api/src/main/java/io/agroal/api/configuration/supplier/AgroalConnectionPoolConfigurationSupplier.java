@@ -32,6 +32,8 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     private TransactionIntegration transactionIntegration = none();
     private boolean flushOnClose = false;
     private int initialSize = 0;
+    private String acquireSql = "";
+    private String returnSql = "";
     private volatile int minSize = 0;
     private volatile int maxSize = MAX_VALUE;
     private AgroalConnectionPoolConfiguration.ConnectionValidator connectionValidator = emptyValidator();
@@ -56,6 +58,8 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         this.transactionIntegration = existingConfiguration.transactionIntegration();
         this.flushOnClose = existingConfiguration.flushOnClose();
         this.initialSize = existingConfiguration.initialSize();
+        this.acquireSql = existingConfiguration.acquireSql();
+        this.returnSql = existingConfiguration.returnSql();
         this.minSize = existingConfiguration.minSize();
         this.maxSize = existingConfiguration.maxSize();
         this.connectionValidator = existingConfiguration.connectionValidator();
@@ -137,6 +141,24 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     public AgroalConnectionPoolConfigurationSupplier initialSize(int size) {
         checkLock();
         initialSize = size;
+        return this;
+    }
+
+    /**
+     * Sets the SQL command to be executed when a connection is acquired.
+     */
+    public AgroalConnectionPoolConfigurationSupplier acquireSql(String sql) {
+        checkLock();
+        acquireSql = sql;
+        return this;
+    }
+
+    /**
+     * Sets the SQL command to be executed when a connection return to the pool.
+     */
+    public AgroalConnectionPoolConfigurationSupplier returnSql(String sql) {
+        checkLock();
+        returnSql = sql;
         return this;
     }
 
@@ -298,6 +320,16 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
             @Override
             public int initialSize() {
                 return initialSize;
+            }
+
+            @Override
+            public String acquireSql() {
+                return acquireSql;
+            }
+
+            @Override
+            public String returnSql(){
+                return returnSql;
             }
 
             @Override

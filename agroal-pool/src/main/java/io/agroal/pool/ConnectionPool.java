@@ -15,6 +15,7 @@ import io.agroal.pool.util.UncheckedArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
@@ -174,6 +175,11 @@ public final class ConnectionPool implements Pool {
                 }
             } while ( idleValidationEnabled && !idleValidation( checkedOutHandler ) );
             activeCount.increment();
+            if ( configuration.acquireSql() != null && !configuration.acquireSql().isEmpty() ) {
+                try ( Statement statement = checkedOutHandler.getConnection().createStatement() ) {
+                    statement.execute( configuration.acquireSql() );
+                }
+            }
         }
 
         metricsRepository.afterConnectionAcquire( metricsStamp );
@@ -306,6 +312,11 @@ public final class ConnectionPool implements Pool {
             }
 
             handler.resetConnection();
+            if ( configuration.returnSql() != null && !configuration.returnSql().isEmpty() ) {
+                try ( Statement statement = handler.getConnection().createStatement() ) {
+                    statement.execute( configuration.returnSql() );
+                }
+            }
             localCache.get().add( handler );
 
             if ( handler.setState( CHECKED_OUT, CHECKED_IN ) ) {
