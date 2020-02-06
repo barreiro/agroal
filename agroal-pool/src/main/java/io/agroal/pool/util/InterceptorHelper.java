@@ -32,7 +32,7 @@ public final class InterceptorHelper {
         if ( interceptors != null && interceptors.size() > 0 ) {
             try (Connection connection = handler.newDetachedConnectionWrapper()) {
                 for ( int i = interceptors.size() - 1; i >= 0; i-- ) {
-                    interceptors.get( i ).onConnectionAcquire( connection );
+                    interceptors.get( i ).onConnectionReturn( connection );
                 }
             }
         }

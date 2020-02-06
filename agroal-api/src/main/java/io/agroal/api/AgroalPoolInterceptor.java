@@ -19,14 +19,14 @@ public interface AgroalPoolInterceptor {
 
     /**
      * This callback is invoked when a connection is successfully acquired.
-     * When in transaction this is called once for multiple acquire calls, before the connection is associated.
+     * When in a transactional environment this is invoked only once for multiple acquire calls within the same transaction, before the connection is associated.
      */
     default void onConnectionAcquire(Connection connection) {
     }
 
     /**
      * This callback is invoked before a connection is returned to the pool.
-     * When in transaction this is called once, after commit / rollback.
+     * When in a transactional environment this is invoked only once for each transaction, after commit / rollback.
      * This callback runs after reset, allowing connections to be in the pool in a different state than the described on the configuration.
      */
     default void onConnectionReturn(Connection connection) {
