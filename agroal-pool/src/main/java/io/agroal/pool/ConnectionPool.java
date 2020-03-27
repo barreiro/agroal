@@ -16,6 +16,7 @@ import io.agroal.pool.util.UncheckedArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -25,6 +26,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.LongAccumulator;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import static io.agroal.api.AgroalDataSource.FlushMode.ALL;
 import static io.agroal.api.AgroalDataSource.FlushMode.GRACEFUL;
@@ -143,9 +145,9 @@ public final class ConnectionPool implements Pool {
     }
 
     public void setPoolInterceptors(List<AgroalPoolInterceptor> list) {
-        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + Integer.toHexString( System.identityHashCode( i ) );
-        fireOnInfo( listeners, "Pool interceptors: " + (list == null ? Collections.<AgroalPoolInterceptor>emptyList() : list).stream().map( interceptorName ).collect( joining( ", ", "[", "]" ) ) );
-        interceptors = list;
+        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + Integer.toHexString( System.identityHashCode( i ) ) + " (priority " + i.getPriority() + ")";
+        interceptors = list.stream().sorted( AgroalPoolInterceptor.DEFAULT_COMPARATOR ).collect( Collectors.toList() );
+        fireOnInfo( listeners, "Pool interceptors: " + ( interceptors == null ? Collections.<AgroalPoolInterceptor>emptyList() : interceptors ).stream().map( interceptorName ).collect( joining( " >>> ", "[", "]" ) ) );
     }
 
     public void flushPool(AgroalDataSource.FlushMode mode) {

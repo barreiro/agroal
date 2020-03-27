@@ -4,6 +4,7 @@
 package io.agroal.api;
 
 import java.sql.Connection;
+import java.util.Comparator;
 
 /**
  * Callback interface for pool actions.
@@ -18,6 +19,16 @@ import java.sql.Connection;
 public interface AgroalPoolInterceptor {
 
     /**
+     * Uses interceptor priority or in alternative {@link Class#getName()} to ensure a consistent ordering.
+     */
+    Comparator<AgroalPoolInterceptor> DEFAULT_COMPARATOR = new Comparator<AgroalPoolInterceptor>() {
+        @Override
+        public int compare(AgroalPoolInterceptor i1, AgroalPoolInterceptor i2) {
+            return i1.getPriority() == i2.getPriority() ? i1.getClass().getName().compareTo( i2.getClass().getName() ) : Integer.compare( i1.getPriority(), i2.getPriority() );
+        }
+    };
+
+    /**
      * This callback is invoked when a connection is successfully acquired.
      * When in a transactional environment this is invoked only once for multiple acquire calls within the same transaction, before the connection is associated.
      */
@@ -30,5 +41,13 @@ public interface AgroalPoolInterceptor {
      * This callback runs after reset, allowing connections to be in the pool in a different state than the described on the configuration.
      */
     default void onConnectionReturn(Connection connection) {
+    }
+
+    /**
+     * Allows a ordering between multiple interceptors.
+     * Lower priority are executed first.
+     */
+    default int getPriority() {
+        return 0;
     }
 }
