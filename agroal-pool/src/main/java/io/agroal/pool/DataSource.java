@@ -13,8 +13,11 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Collection;
 import java.util.List;
 import java.util.logging.Logger;
+
+import static java.util.Collections.emptyList;
 
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
@@ -42,8 +45,8 @@ public final class DataSource implements AgroalDataSource {
     // --- AgroalDataSource methods //
 
     @Override
-    public void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors) {
-        connectionPool.setPoolInterceptors( interceptors );
+    public void setPoolInterceptors(Collection<AgroalPoolInterceptor> interceptors) {
+        connectionPool.setPoolInterceptors( interceptors == null ? emptyList() : interceptors );
     }
 
     @Override

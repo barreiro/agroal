@@ -10,6 +10,7 @@ import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Supplier;
 
@@ -73,10 +74,10 @@ public interface AgroalDataSource extends AutoCloseable, DataSource, Serializabl
     /**
      * Sets pool interceptors.
      */
-    void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors);
+    void setPoolInterceptors(Collection<AgroalPoolInterceptor> interceptors);
 
     /**
-     * Get the list of pool interceptors.
+     * Get the list of pool interceptors. Interceptors are sorted from high to low priority.
      */
     List<AgroalPoolInterceptor> getPoolInterceptors();
 

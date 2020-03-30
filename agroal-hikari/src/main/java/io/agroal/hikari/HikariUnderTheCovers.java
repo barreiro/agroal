@@ -18,6 +18,7 @@ import java.io.PrintWriter;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -92,7 +93,7 @@ public class HikariUnderTheCovers implements AgroalDataSource {
     // --- //
 
     @Override
-    public void setPoolInterceptors(List<AgroalPoolInterceptor> interceptors) {
+    public void setPoolInterceptors(Collection<AgroalPoolInterceptor> interceptors) {
         throw new UnsupportedOperationException( "Hikari pool does not support interceptors" );
     }
 

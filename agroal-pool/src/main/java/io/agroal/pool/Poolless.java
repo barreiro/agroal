@@ -14,6 +14,7 @@ import io.agroal.pool.util.StampedCopyOnWriteArrayList;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -38,9 +39,13 @@ import static io.agroal.pool.util.ListenerHelper.fireOnConnectionFlush;
 import static io.agroal.pool.util.ListenerHelper.fireOnConnectionPooled;
 import static io.agroal.pool.util.ListenerHelper.fireOnInfo;
 import static io.agroal.pool.util.ListenerHelper.fireOnWarning;
+import static java.lang.Integer.toHexString;
+import static java.lang.System.identityHashCode;
 import static java.lang.System.nanoTime;
 import static java.lang.Thread.currentThread;
+import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 
 /**
  * Alternative implementation of ConnectionPool for the special case of flush-on-close (and min-size == 0)
@@ -109,13 +114,14 @@ public final class Poolless implements Pool {
     }
 
     public List<AgroalPoolInterceptor> getPoolInterceptors() {
-        return interceptors;
+        return unmodifiableList( interceptors );
     }
 
-    public void setPoolInterceptors(List<AgroalPoolInterceptor> list) {
-        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + Integer.toHexString( System.identityHashCode( i ) );
-        fireOnInfo( listeners, "Pool interceptors: " + ( list == null ? Collections.<AgroalPoolInterceptor>emptyList() : list ).stream().map( interceptorName ).collect( joining( ", ", "[", "]" ) ) );
-        interceptors = list;
+    public void setPoolInterceptors(Collection<AgroalPoolInterceptor> list) {
+        interceptors = list.stream().sorted( AgroalPoolInterceptor.DEFAULT_COMPARATOR ).collect( toList() );
+
+        Function<AgroalPoolInterceptor, String> interceptorName = i -> i.getClass().getName() + "@" + toHexString( identityHashCode( i ) ) + " (priority " + i.getPriority() + ")";
+        fireOnInfo( listeners, "Pool interceptors: " + interceptors.stream().map( interceptorName ).collect( joining( " >>> ", "[", "]" ) ) );
     }
 
     // --- //

@@ -12,6 +12,7 @@ import io.agroal.api.configuration.AgroalDataSourceConfiguration.MetricsEnabledL
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -31,7 +32,7 @@ public interface Pool extends MetricsEnabledListener, AutoCloseable {
 
     List<AgroalPoolInterceptor> getPoolInterceptors();
 
-    void setPoolInterceptors(List<AgroalPoolInterceptor> list);
+    void setPoolInterceptors(Collection<AgroalPoolInterceptor> list);
 
     void returnConnectionHandler(ConnectionHandler handler) throws SQLException;
 
