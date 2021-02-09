@@ -265,6 +265,9 @@ public final class ConnectionHandler implements TransactionAware {
         if ( !enlisted && transactionActiveCheck.call() ) {
             throw new SQLException( "Deferred enlistment not supported" );
         }
+        if ( enlisted && !transactionActiveCheck.call() ) {
+            throw new SQLException( "Enlisted connection used without active transaction" );
+        }
     }
 
     @Override

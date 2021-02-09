@@ -20,7 +20,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static javax.transaction.Status.STATUS_ACTIVE;
+import static javax.transaction.Status.STATUS_COMMITTING;
 import static javax.transaction.Status.STATUS_MARKED_ROLLBACK;
+import static javax.transaction.Status.STATUS_ROLLING_BACK;
 
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
@@ -91,9 +93,8 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
                 } else {
                     transactionAware.transactionStart();
                 }
-            } else {
-                transactionAware.transactionCheckCallback( this::transactionRunning );
             }
+            transactionAware.transactionCheckCallback( this::transactionRunning );
         } catch ( Exception e ) {
             throw new SQLException( "Exception in association of connection to existing transaction", e );
         }
@@ -110,7 +111,11 @@ public class NarayanaTransactionIntegration implements TransactionIntegration {
     private boolean transactionRunning() throws SQLException {
         try {
             Transaction transaction = transactionManager.getTransaction();
-            return transaction != null && ( transaction.getStatus() == STATUS_ACTIVE || transaction.getStatus() == STATUS_MARKED_ROLLBACK );
+            if ( transaction == null ) {
+                return false;
+            }
+            int status = transaction.getStatus();
+            return status == STATUS_ACTIVE || status == STATUS_MARKED_ROLLBACK || status == STATUS_COMMITTING || status == STATUS_ROLLING_BACK;
         } catch ( Exception e ) {
             throw new SQLException( "Exception in retrieving existing transaction", e );
         }
