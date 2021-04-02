@@ -9,6 +9,8 @@ import io.agroal.api.transaction.TransactionAware;
 import io.agroal.pool.util.UncheckedArrayList;
 import io.agroal.pool.wrapper.ConnectionWrapper;
 
+import javax.sql.ConnectionEvent;
+import javax.sql.ConnectionEventListener;
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAResource;
 import java.sql.Connection;
@@ -33,7 +35,7 @@ import static java.util.concurrent.atomic.AtomicReferenceFieldUpdater.newUpdater
 /**
  * @author <a href="lbarreiro@redhat.com">Luis Barreiro</a>
  */
-public final class ConnectionHandler implements TransactionAware {
+public final class ConnectionHandler implements TransactionAware, ConnectionEventListener {
 
     private static final AtomicReferenceFieldUpdater<ConnectionHandler, State> stateUpdater = newUpdater( ConnectionHandler.class, State.class, "state" );
 
@@ -88,6 +90,7 @@ public final class ConnectionHandler implements TransactionAware {
         xaConnection = xa;
         connection = xaConnection.getConnection();
         xaResource = xaConnection.getXAResource();
+        registerAsConnectionEventListener();
 
         connectionPool = pool;
         touch();
@@ -172,6 +175,7 @@ public final class ConnectionHandler implements TransactionAware {
             }
         } finally {
             try {
+                unregisterAsConnectionEventListener();
                 xaConnection.close();
             } finally {
                 stateUpdater.set( this, State.DESTROYED );
@@ -355,6 +359,26 @@ public final class ConnectionHandler implements TransactionAware {
         if ( exceptionSorter != null && exceptionSorter.isFatal( se ) ) {
             setState( State.FLUSH );
         }
+    }
+
+    // --- ConnectionEventListener //
+
+    @Override
+    public void connectionClosed(ConnectionEvent event) {
+        setFlushOnly();
+    }
+
+    @Override
+    public void connectionErrorOccurred(ConnectionEvent event) {
+        setFlushOnly( event.getSQLException() );
+    }
+
+    private void registerAsConnectionEventListener() {
+        xaConnection.addConnectionEventListener( this );
+    }
+
+    private void unregisterAsConnectionEventListener() {
+        xaConnection.removeConnectionEventListener( this );
     }
 
     // --- //

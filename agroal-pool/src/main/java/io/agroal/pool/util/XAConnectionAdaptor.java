@@ -3,12 +3,15 @@
 
 package io.agroal.pool.util;
 
+import javax.sql.ConnectionEvent;
 import javax.sql.ConnectionEventListener;
 import javax.sql.StatementEventListener;
 import javax.sql.XAConnection;
 import javax.transaction.xa.XAResource;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Disguises a non-XA connection as an XAConnection. Useful to keep the same logic for pooling both XA and non-XA connections
@@ -18,6 +21,8 @@ import java.sql.SQLException;
 public class XAConnectionAdaptor implements XAConnection {
 
     private final Connection connection;
+
+    private final List<ConnectionEventListener> eventListeners = new CopyOnWriteArrayList<>();
 
     public XAConnectionAdaptor(Connection connection) {
         this.connection = connection;
@@ -30,17 +35,21 @@ public class XAConnectionAdaptor implements XAConnection {
 
     @Override
     public void close() throws SQLException {
+        ConnectionEvent event = new ConnectionEvent( this );
+        for ( ConnectionEventListener listener : eventListeners ) {
+            listener.connectionClosed( event );
+        }
         connection.close();
     }
 
     @Override
     public void addConnectionEventListener(ConnectionEventListener listener) {
-        throw new IllegalArgumentException( "no ConnectionEventListener on non-XA connection" );
+        eventListeners.add( listener );
     }
 
     @Override
     public void removeConnectionEventListener(ConnectionEventListener listener) {
-        throw new IllegalArgumentException( "no ConnectionEventListener on non-XA connection" );
+        eventListeners.remove( listener );
     }
 
     @Override
