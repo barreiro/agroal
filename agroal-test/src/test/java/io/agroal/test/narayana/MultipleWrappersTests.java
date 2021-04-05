@@ -146,7 +146,7 @@ public class MultipleWrappersTests {
             assertEquals( 1, returnCounter.getReturnCount(), "Connection not returned when expected" );
             connectionRollback.close();
             assertEquals( 1, returnCounter.getAttemptsCount(), "Multiple return of Connection" );
-            assertEquals( 1, returnCounter.getWarningCount(), "Did not get a warning indicating the connection was closed by Agroal" );
+            assertEquals( 0, returnCounter.getWarningCount(), "Got a warning indicating the connection was closed by Agroal on rollback" );
         } catch ( SystemException | NotSupportedException | HeuristicRollbackException | HeuristicMixedException | RollbackException e ) {
             fail( "Transaction exception", e );
         }
