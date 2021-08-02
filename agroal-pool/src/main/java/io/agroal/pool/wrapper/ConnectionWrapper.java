@@ -168,6 +168,9 @@ public final class ConnectionWrapper implements Connection {
             handler.setFlushOnly();
             throw new SQLException( "Trying to set autocommit in connection taking part of transaction" );
         }
+        if ( autoCommit ) {
+            handler.transactionCheckCallback( () -> false ); // for AUTOCOMMIT transaction requirement
+        }
         try {
             handler.verifyEnlistment();
             if ( wrappedConnection.getAutoCommit() != autoCommit ) {

@@ -148,7 +148,11 @@ public interface AgroalConnectionPoolConfiguration {
         /**
          * Throw exception if not enlisted.
          */
-        STRICT
+        STRICT,
+        /**
+         * Throw exception if not enlisted, except for when autocommit is called.
+         */
+        AUTOCOMMIT
     }
 
     /**

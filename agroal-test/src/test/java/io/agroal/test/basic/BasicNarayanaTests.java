@@ -24,6 +24,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.logging.Logger;
 
+import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.TransactionRequirement.AUTOCOMMIT;
 import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.TransactionRequirement.STRICT;
 import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.TransactionRequirement.WARN;
 import static io.agroal.test.AgroalTestGroup.FUNCTIONAL;
@@ -182,7 +183,7 @@ public class BasicNarayanaTests {
                         .maxSize( 1 )
                         .transactionIntegration( new NarayanaTransactionIntegration( txManager, txSyncRegistry ) )
                         .transactionRequirement( STRICT )
-                ) ) ) {
+                ), new NoWarningsListener() ) ) {
             assertThrows( SQLException.class, dataSource::getConnection );
 
             // Make sure connection is available after getConnection() throws
@@ -193,6 +194,21 @@ public class BasicNarayanaTests {
             txManager.rollback();
         } catch ( SystemException | NotSupportedException e ) {
             fail( "Exception: " + e.getMessage() );
+        }
+
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( new AgroalDataSourceConfigurationSupplier()
+                .connectionPoolConfiguration( cp -> cp
+                        .maxSize( 1 )
+                        .transactionIntegration( new NarayanaTransactionIntegration( txManager, txSyncRegistry ) )
+                        .transactionRequirement( AUTOCOMMIT )
+                ), new NoWarningsListener() ) ) {
+            try ( Connection c = dataSource.getConnection() ) {
+                logger.info( "Got connection without tx :" + c );
+                assertThrows( SQLException.class, c::getSchema );
+                logger.info( "Set autocommit and execute operation" );
+                c.setAutoCommit( true );
+                c.getSchema();
+            }
         }
     }
 

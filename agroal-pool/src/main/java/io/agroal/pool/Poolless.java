@@ -247,6 +247,9 @@ public final class Poolless implements Pool {
                     throw new SQLException( "Connection acquired without transaction." );
                 case WARN:
                     fireOnWarning( listeners, new SQLException( "Connection acquired without transaction." ) );
+                    break;
+                case AUTOCOMMIT:
+                    checkedOutHandler.transactionCheckCallback( () -> { throw new SQLException( "Either autocommit or transaction is required" ); } );
                 case OFF: // do nothing
                 default:
             }
