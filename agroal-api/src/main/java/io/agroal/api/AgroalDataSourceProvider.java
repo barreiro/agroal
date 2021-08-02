@@ -5,6 +5,8 @@ package io.agroal.api;
 
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
 
+import java.sql.SQLException;
+
 /**
  * An interface for providers of AgroalDataSource.
  *
@@ -15,5 +17,5 @@ public interface AgroalDataSourceProvider {
     /**
      * Factory method for AgroalDataSource. This method must return null if it can't create an AgroalDataSource based on the supplied configuration.
      */
-    AgroalDataSource getDataSource(AgroalDataSourceConfiguration configuration, AgroalDataSourceListener... listeners);
+    AgroalDataSource getDataSource(AgroalDataSourceConfiguration configuration, AgroalDataSourceListener... listeners) throws SQLException;
 }

@@ -8,6 +8,8 @@ import io.agroal.api.AgroalDataSourceListener;
 import io.agroal.api.AgroalDataSourceProvider;
 import io.agroal.api.configuration.AgroalDataSourceConfiguration;
 
+import java.sql.SQLException;
+
 import static io.agroal.api.configuration.AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL;
 import static io.agroal.api.configuration.AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL_POOLLESS;
 
@@ -17,7 +19,7 @@ import static io.agroal.api.configuration.AgroalDataSourceConfiguration.DataSour
 public final class DataSourceProvider implements AgroalDataSourceProvider {
 
     @Override
-    public AgroalDataSource getDataSource(AgroalDataSourceConfiguration config, AgroalDataSourceListener... listeners) {
+    public AgroalDataSource getDataSource(AgroalDataSourceConfiguration config, AgroalDataSourceListener... listeners) throws SQLException {
         return config.dataSourceImplementation() == AGROAL || config.dataSourceImplementation() == AGROAL_POOLLESS ? new DataSource( config, listeners ) : null;
     }
 }

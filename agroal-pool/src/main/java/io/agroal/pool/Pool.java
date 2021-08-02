@@ -20,7 +20,7 @@ import java.util.List;
  */
 public interface Pool extends MetricsEnabledListener, AutoCloseable {
 
-    void init();
+    void init() throws SQLException;
 
     Connection getConnection() throws SQLException;
 

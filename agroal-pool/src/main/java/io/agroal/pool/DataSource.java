@@ -29,7 +29,7 @@ public final class DataSource implements AgroalDataSource {
     private final AgroalDataSourceConfiguration configuration;
     private final Pool connectionPool;
 
-    public DataSource(AgroalDataSourceConfiguration dataSourceConfiguration, AgroalDataSourceListener... listeners) {
+    public DataSource(AgroalDataSourceConfiguration dataSourceConfiguration, AgroalDataSourceListener... listeners) throws SQLException {
         configuration = dataSourceConfiguration;
         if ( configuration.dataSourceImplementation() == AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL_POOLLESS ) {
             connectionPool = new Poolless( dataSourceConfiguration.connectionPoolConfiguration(), listeners );

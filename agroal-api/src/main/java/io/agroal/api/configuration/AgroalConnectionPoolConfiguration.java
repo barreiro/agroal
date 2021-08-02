@@ -97,6 +97,11 @@ public interface AgroalConnectionPoolConfiguration {
      */
     int initialSize();
 
+    /**
+     * If the datasource should fail to start if initial connections are not successfully established.
+     */
+    boolean initialFailFast();
+
     // --- Mutable attributes //
 
     /**

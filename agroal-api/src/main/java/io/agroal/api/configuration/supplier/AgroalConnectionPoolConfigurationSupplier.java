@@ -38,6 +38,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     boolean enhancedLeakReport;
     boolean flushOnClose;
     int initialSize;
+    boolean initialFailFast;
     volatile int minSize;
     volatile int maxSize = MAX_VALUE;
     AgroalConnectionPoolConfiguration.ConnectionValidator connectionValidator = emptyValidator();
@@ -70,6 +71,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         flushOnClose = existingConfiguration.flushOnClose();
         enhancedLeakReport = existingConfiguration.enhancedLeakReport();
         initialSize = existingConfiguration.initialSize();
+        initialFailFast = existingConfiguration.initialFailFast();
         minSize = existingConfiguration.minSize();
         maxSize = existingConfiguration.maxSize();
         connectionValidator = existingConfiguration.connectionValidator();
@@ -194,6 +196,24 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     public AgroalConnectionPoolConfigurationSupplier initialSize(int size) {
         checkLock();
         initialSize = size;
+        return this;
+    }
+
+    /**
+     * Fails datasource startup if initial connections are not successfully established. Default is false.
+     */
+    public AgroalConnectionPoolConfigurationSupplier initialFailFast() {
+        checkLock();
+        initialFailFast = true;
+        return this;
+    }
+
+    /**
+     * Fails datasource startup if initial connections are not successfully established. Default is false.
+     */
+    public AgroalConnectionPoolConfigurationSupplier initialFailFast(boolean failFast) {
+        checkLock();
+        initialFailFast = failFast;
         return this;
     }
 
@@ -375,6 +395,11 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
             @Override
             public int initialSize() {
                 return initialSize;
+            }
+
+            @Override
+            public boolean initialFailFast() {
+                return initialFailFast;
             }
 
             @Override

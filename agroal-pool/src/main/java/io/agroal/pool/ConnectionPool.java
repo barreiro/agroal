@@ -14,13 +14,16 @@ import io.agroal.pool.util.AgroalSynchronizer;
 import io.agroal.pool.util.PriorityScheduledExecutor;
 import io.agroal.pool.util.StampedCopyOnWriteArrayList;
 
+import javax.sql.XAConnection;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAccumulator;
@@ -115,7 +118,7 @@ public final class ConnectionPool implements Pool {
         reapEnabled = !configuration.reapTimeout().isZero();
     }
 
-    public void init() {
+    public void init() throws SQLException {
         if ( leakEnabled ) {
             housekeepingExecutor.schedule( new LeakTask(), configuration.leakTimeout().toNanos(), NANOSECONDS );
         }
@@ -134,8 +137,27 @@ public final class ConnectionPool implements Pool {
         } else if ( configuration.initialSize() > configuration.maxSize() ) {
             fireOnInfo( listeners, "Initial size bigger than max. Connections will be destroyed as soon as they return to the pool" );
         }
+        List<Future<ConnectionHandler>> futures = new ArrayList<>( configuration.initialSize() );
         for ( int n = configuration.initialSize(); n > 0; n-- ) {
-            housekeepingExecutor.executeNow( new CreateConnectionTask().initial() );
+            futures.add( housekeepingExecutor.executeNow( new CreateConnectionTask().initial() ) );
+        }
+        if ( configuration.initialFailFast() ) {
+            for ( Future<?> future : futures ) {
+                try {
+                    future.get();
+                } catch ( InterruptedException e ) {
+                    currentThread().interrupt();
+                    throw new SQLException( "Interrupted while creating initial connection" );
+                } catch ( ExecutionException e ) {
+                    try {
+                        throw e.getCause();
+                    } catch ( RuntimeException | Error | SQLException e2 ) {
+                        throw e2;
+                    } catch ( Throwable t ) {
+                        throw new SQLException( "Exception while creating initial connection", t );
+                    }
+                }
+            }
         }
     }
 
