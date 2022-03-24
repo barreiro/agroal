@@ -11,6 +11,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.StampedLock;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -25,6 +26,8 @@ import static java.lang.reflect.Array.newInstance;
  */
 public final class StampedCopyOnWriteArrayList<T> implements List<T> {
 
+    private static final boolean RANDOM_ITERATION = true;
+
     private final Iterator<T> emptyIterator = new Iterator<T>() {
         @Override
         public boolean hasNext() {
@@ -36,7 +39,7 @@ public final class StampedCopyOnWriteArrayList<T> implements List<T> {
             throw new NoSuchElementException();
         }
     };
-    
+
     private final StampedLock lock;
     private long optimisticStamp;
     private T[] data;
@@ -177,7 +180,7 @@ public final class StampedCopyOnWriteArrayList<T> implements List<T> {
     @Override
     public Iterator<T> iterator() {
         T[] array = getUnderlyingArray();
-        return array.length == 0 ? emptyIterator : new UncheckedIterator<>( array );
+        return array.length == 0 ? emptyIterator : new UncheckedRandomOrderIterator<>( array, RANDOM_ITERATION );
     }
 
     @Override
@@ -308,18 +311,26 @@ public final class StampedCopyOnWriteArrayList<T> implements List<T> {
 
     // --- //
 
-    private static final class UncheckedIterator<T> implements Iterator<T> {
+    private static final class UncheckedRandomOrderIterator<T> implements Iterator<T> {
 
         private final int size;
-
         private final T[] data;
 
         private int index;
 
         @SuppressWarnings( "WeakerAccess" )
-        UncheckedIterator(T[] array) {
-            data = array;
+        UncheckedRandomOrderIterator(T[] array, boolean shuffle) {
+            data = shuffle ? Arrays.copyOf( array, array.length ) : array;
             size = data.length;
+
+            // shuffle array --- iterating over and swapping with a random element
+            for ( int i = size - 1; shuffle && i > 0; i-- ) {
+                int other = ThreadLocalRandom.current().nextInt( i + 1 );
+
+                T swap = data[i];
+                data[i] = data[other];
+                data[other] = swap;
+            }
         }
 
         @Override
@@ -335,5 +346,4 @@ public final class StampedCopyOnWriteArrayList<T> implements List<T> {
             throw new NoSuchElementException( "No more elements in this list" );
         }
     }
-
 }
