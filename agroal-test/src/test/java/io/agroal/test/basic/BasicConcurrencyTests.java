@@ -5,6 +5,7 @@ package io.agroal.test.basic;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
+import io.agroal.api.AgroalPoolInterceptor;
 import io.agroal.api.configuration.supplier.AgroalDataSourceConfigurationSupplier;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -81,7 +82,7 @@ public class BasicConcurrencyTests {
                         .maxSize( MAX_POOL_SIZE )
                 );
 
-        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener ) ) {
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener, new SandOnTheCogs() ) ) {
 
             for ( int i = 0; i < CALLS; i++ ) {
                 executor.submit( () -> {
@@ -136,7 +137,7 @@ public class BasicConcurrencyTests {
                         .acquisitionTimeout( ofMillis( ACQUISITION_TIMEOUT_MS ) )
                 );
 
-        AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener );
+        AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener, new SandOnTheCogs()  );
 
         executor.submit( () -> {
             for ( int i = 0; i < MAX_POOL_SIZE; i++ ) {
@@ -211,7 +212,7 @@ public class BasicConcurrencyTests {
                         .validationTimeout( ofSeconds( 2 ) )
                 );
 
-        AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener );
+        AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener, new SandOnTheCogs()  );
 
         if ( !listener.getStartupLatch().await( TIMEOUT_MS, MILLISECONDS ) ) {
             fail( "Did not execute within the required amount of time" );
@@ -252,7 +253,7 @@ public class BasicConcurrencyTests {
                         .flushOnClose()
                 );
 
-        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener1, listener2 ) ) {
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, listener1, listener2, new SandOnTheCogs()  ) ) {
 
             for (int i = 0; i < CALLS; i++) {
                 executor.submit(() -> {
@@ -290,6 +291,224 @@ public class BasicConcurrencyTests {
     }
 
     // --- //
+
+    private class SandOnTheCogs implements AgroalDataSourceListener {
+        @Override
+        public void beforeConnectionCreation() {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionCreation(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionCreationFailure(SQLException sqlException) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionPooled(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionAcquire() {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionAcquire(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionReturn(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionReturn(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionLeak(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionLeak(Connection connection, Thread thread) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionValidation(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionValid(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionInvalid(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionFlush(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionFlush(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionReap(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionReap(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforeConnectionDestroy(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onConnectionDestroy(Connection connection) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onPoolInterceptor(AgroalPoolInterceptor interceptor) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void beforePoolBlock(long timeout) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onWarning(String message) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onWarning(Throwable throwable) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+
+        @Override
+        public void onInfo(String message) {
+            try {
+                Thread.sleep( 1 );
+            } catch ( InterruptedException e ) {
+                throw new RuntimeException( e );
+            }
+        }
+    }
 
     @SuppressWarnings( "WeakerAccess" )
     private static class BasicConcurrencyTestsListener implements AgroalDataSourceListener {
