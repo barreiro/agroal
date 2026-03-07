@@ -120,6 +120,11 @@ public interface AgroalConnectionPoolConfiguration {
     MultipleAcquisitionAction multipleAcquisition();
 
     /**
+     * The maximum number of threads that can be blocked awaiting a connection.
+     */
+    int maxWaiters();
+
+    /**
      * The number of connections to be created when the pool starts. Can be smaller than min or bigger than max.
      */
     int initialSize();

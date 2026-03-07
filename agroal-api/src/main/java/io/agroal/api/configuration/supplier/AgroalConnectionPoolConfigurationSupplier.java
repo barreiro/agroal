@@ -44,6 +44,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
     volatile int maxSize = MAX_VALUE;
     boolean validateOnBorrow;
     int establishmentRetryAttempts = 1;
+    int maxWaiters = MAX_VALUE;
     Duration establishmentRetryInterval = ofSeconds( 1 );
     AgroalConnectionPoolConfiguration.ConnectionValidator connectionValidator = emptyValidator();
     AgroalConnectionPoolConfiguration.ExceptionSorter exceptionSorter = emptyExceptionSorter();
@@ -75,6 +76,7 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         flushOnClose = existingConfiguration.flushOnClose();
         recoveryEnable = existingConfiguration.recoveryEnable();
         enhancedLeakReport = existingConfiguration.enhancedLeakReport();
+        maxWaiters = existingConfiguration.maxWaiters();
         initialSize = existingConfiguration.initialSize();
         minSize = existingConfiguration.minSize();
         maxSize = existingConfiguration.maxSize();
@@ -206,6 +208,16 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         recoveryEnable = enable;
         return this;
     }
+
+    /**
+     * Sets a maximum for the number of waiting threads. When reached, acquisition attempts will fail with exception.
+     */
+    public AgroalConnectionPoolConfigurationSupplier maxWaiters(int waiters) {
+        checkLock();
+        maxWaiters = waiters;
+        return this;
+    }
+
     /**
      * Sets the number of connections when the pool starts. Must not be negative. Default is zero.
      */
@@ -377,6 +389,9 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
         if ( validationTimeout.isNegative() ) {
             throw new IllegalArgumentException( "Validation timeout must not be negative" );
         }
+        if ( maxWaiters < 0 ) {
+            throw new IllegalArgumentException( "Number of waiters must not be negative" );
+        }
         if ( connectionFactoryConfigurationSupplier == null ) {
             throw new IllegalArgumentException( "Connection factory configuration not defined" );
         }
@@ -439,6 +454,11 @@ public class AgroalConnectionPoolConfigurationSupplier implements Supplier<Agroa
             @Override
             public MultipleAcquisitionAction multipleAcquisition() {
                 return multipleAcquisitionAction;
+            }
+
+            @Override
+            public int maxWaiters() {
+                return maxWaiters;
             }
 
             @Override

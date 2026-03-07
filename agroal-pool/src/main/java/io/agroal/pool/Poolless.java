@@ -306,6 +306,9 @@ public final class Poolless implements Pool {
     }
 
     private void waitAvailableHandler(long timeout, boolean strict) throws InterruptedException, SQLException {
+        if ( handlerTransferQueue.getWaitingConsumerCount() >= configuration.maxWaiters() ) {
+            throw new SQLException( "Sorry, pool has enough waiters already!" );
+        }
         fireBeforePoolBlock( listeners, timeout );
         ConnectionHandler handler = handlerTransferQueue.poll( timeout, NANOSECONDS );
         if ( strict && handler == null ) {

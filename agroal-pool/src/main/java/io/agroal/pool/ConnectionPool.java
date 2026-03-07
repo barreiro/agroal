@@ -347,11 +347,15 @@ public final class ConnectionPool implements Pool {
     private ConnectionHandler handlerFromSharedCache() throws SQLException {
         long acquisitionTimeout = configuration.acquisitionTimeout().isZero() ? MAX_VALUE : configuration.acquisitionTimeout().toNanos();
         long deadline = acquisitionTimeout == MAX_VALUE ? MAX_VALUE : nanoTime() + acquisitionTimeout;
-        boolean collaborate = true;
+        boolean firstAttempt = true, collaborate = true;
         int retries = configuration.establishmentRetryAttempts();
         try {
-            for ( int i = 0; ; i++ ) {
-                if ( i == 0 && handlerTransferQueue.hasWaitingConsumer() ) { // On the first iteration, block right away if there are other threads already blocked
+            while ( true ) {
+                if ( firstAttempt && handlerTransferQueue.hasWaitingConsumer() ) {
+                    if ( configuration.maxWaiters() != Integer.MAX_VALUE && handlerTransferQueue.getWaitingConsumerCount() >= configuration.maxWaiters() ) {
+                        throw new SQLException( "Sorry, pool has enough waiters already!" );
+                    }
+                    // On the first iteration, block right away if there are other threads already blocked
                     // There is a race condition here (if a thread was blocked but by the time poll is executed a transfer allready took place)
                     // Because of that do not block for the whole remaining duration. Do it for at most a second and then move on to perform a scan
                     ConnectionHandler handler = waitAvailableHandler( Long.min( ONE_SECOND, acquisitionTimeout * 9 / 10 ), false );
@@ -406,6 +410,7 @@ public final class ConnectionPool implements Pool {
                         return handler;
                     }
                 }
+                firstAttempt = false;
             }
         } catch ( InterruptedException e ) {
             currentThread().interrupt();

@@ -102,6 +102,10 @@ public class AgroalDataSource implements io.agroal.api.AgroalDataSource, Initial
         connectionPoolConfiguration.initialSize( size );
     }
 
+    public void setMaxWaiters(int waiters) {
+        connectionPoolConfiguration.maxWaiters( waiters );
+    }
+
     public void setValidateOnBorrow( boolean validateOnBorrow ) {
         connectionPoolConfiguration.validateOnBorrow( validateOnBorrow );
     }

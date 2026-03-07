@@ -5,7 +5,7 @@ package io.agroal.test.basic;
 
 import io.agroal.api.AgroalDataSource;
 import io.agroal.api.AgroalDataSourceListener;
-import io.agroal.api.configuration.AgroalConnectionPoolConfiguration;
+import io.agroal.api.configuration.AgroalDataSourceConfiguration;
 import io.agroal.api.configuration.supplier.AgroalDataSourceConfigurationSupplier;
 import io.agroal.test.MockConnection;
 import io.agroal.test.MockStatement;
@@ -14,15 +14,19 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.concurrent.locks.LockSupport;
 import java.util.logging.Logger;
 
 import static io.agroal.api.configuration.AgroalConnectionPoolConfiguration.ExceptionSorter.fatalExceptionSorter;
@@ -34,13 +38,17 @@ import static io.agroal.test.MockDriver.registerMockDriver;
 import static java.lang.Thread.currentThread;
 import static java.text.MessageFormat.format;
 import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofSeconds;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.logging.Logger.getLogger;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
@@ -352,6 +360,48 @@ public class BasicTests {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @DisplayName( "Max waiters" )
+    void maxWaitersTest(boolean poolless) throws Exception {
+        int WAITERS = 5, TIMEOUT_S = 5;
+        AgroalDataSourceConfigurationSupplier configurationSupplier = new AgroalDataSourceConfigurationSupplier()
+                .dataSourceImplementation( poolless ? AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL : AgroalDataSourceConfiguration.DataSourceImplementation.AGROAL_POOLLESS )
+                .metricsEnabled()
+                .connectionPoolConfiguration( cp -> cp
+                        .maxSize( 1 )
+                        .maxWaiters( WAITERS )
+                );
+        CountDownLatch latch = new CountDownLatch( WAITERS );
+        try ( AgroalDataSource dataSource = AgroalDataSource.from( configurationSupplier, new BlockListener( latch ) ) ) {
+            assertDoesNotThrow( () -> dataSource.getConnection() );
+            logger.info( "Got one connection and not returning it. Acquire attempts will block waiting for it" );
+
+            for ( int i = 0; i < WAITERS; i++ ) {
+                new Thread( () -> {
+                    try {
+                        dataSource.getConnection();
+                        fail ( "Acquisition should fail" );
+                    } catch ( Exception e ) {
+                        if ( !( e instanceof CancellationException ) && !( e.getCause() instanceof CancellationException ) ) {
+                            fail( "Unexpected exception" );
+                        }
+                    }
+                } ).start();
+            }
+            logger.info( format( "Awaiting for all the {0} waiters to block", WAITERS ) );
+            if ( !latch.await( TIMEOUT_S, SECONDS ) ) {
+                fail( format( "{0} waiters missing", latch.getCount() ) );
+            }
+            LockSupport.parkNanos( 1_000_000 ); // wait a little bit to give time for the threads to actually block
+
+            assertEquals( WAITERS, dataSource.getMetrics().awaitingCount(), "Unexpected numbers of waiters" );
+            assertTimeoutPreemptively( ofSeconds( TIMEOUT_S ),
+                    () -> assertThrows( SQLException.class, () -> dataSource.getConnection(), "Acquisition should fail as the max number of waiters have been reached" )
+            );
+        }
+    }
+
     @Test
     @DisplayName( "Single acquisition" )
     @SuppressWarnings( {"JDBCResourceOpenedButNotSafelyClosed", "ObjectAllocationInLoop"} )
@@ -440,6 +490,21 @@ public class BasicTests {
 
         int getWarningCount() {
             return warningCount;
+        }
+    }
+
+    private static class BlockListener implements AgroalDataSourceListener {
+        private final CountDownLatch latch;
+
+        @SuppressWarnings( "WeakerAccess" )
+        BlockListener(CountDownLatch latch) {
+            this.latch = latch;
+        }
+
+        @Override
+        public void beforePoolBlock(long timeout) {
+            logger.info( "Thread " + Thread.currentThread() + " will block for " + timeout / 1_000_000_000 + " s" );
+            latch.countDown();
         }
     }
 
